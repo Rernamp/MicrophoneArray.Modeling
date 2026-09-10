@@ -1,0 +1,19 @@
+Metadata-Version: 2.4
+Name: microphonearray-modeling
+Version: 0.1.0
+Summary: Add your description here
+Requires-Python: >=3.13
+Description-Content-Type: text/markdown
+Requires-Dist: altair>=6.2.2
+Requires-Dist: ipykernel>=7.3.0
+Requires-Dist: jupyterlab>=4.6.1
+Requires-Dist: marimo>=0.23.15
+Requires-Dist: matplotlib>=3.11.1
+Requires-Dist: numpy>=2.5.1
+Requires-Dist: pandas>=3.0.5
+Requires-Dist: pyarrow>=25.0.0
+Requires-Dist: pytest>=9.1.1
+Requires-Dist: pytest-cov>=7.1.0
+Requires-Dist: scipy>=1.18.0
+Requires-Dist: vegafusion>=2.0.3
+Requires-Dist: vl-convert-python>=1.9.0.post1
