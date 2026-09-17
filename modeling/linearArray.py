@@ -15,8 +15,28 @@ def _():
 
 @app.cell
 def _(mo):
+    get_angle_of_arrival, set_angle_of_arrival = mo.state(value=0)
+    return get_angle_of_arrival, set_angle_of_arrival
+
+
+@app.cell
+def _(get_angle_of_arrival, mo, set_angle_of_arrival):
+    angle_of_arrival_ui_number = mo.ui.number(value=get_angle_of_arrival(), start=-90, stop=90, step=0.1, label="Angle of arrival (deg)", on_change=set_angle_of_arrival)
+    return (angle_of_arrival_ui_number,)
+
+
+@app.cell
+def _(
+    angle_of_arrival_ui_number,
+    get_angle_of_arrival,
+    mo,
+    set_angle_of_arrival,
+):
+
     number_elements_ui = mo.ui.number(value=4, start=2, stop=128, step=1, label="Number elements")
-    angle_of_arrival_ui = mo.ui.number(value=0, start=-90, stop=90, step=0.1, label="Angle of arrival (deg)")
+
+    angle_of_arrival_ui_slider = mo.ui.slider(value=get_angle_of_arrival(), start=-90, stop=90, step=0.1, on_change=set_angle_of_arrival)
+    angle_of_arrival_ui = mo.hstack([angle_of_arrival_ui_number, angle_of_arrival_ui_slider])
     mic_distance_ui = mo.ui.number(value=2e-2, start=1e-2, stop=1, step=1e-3, label="Distance between adjacent elements (m)")
     sample_rate_ui = mo.ui.number(value=48e3, start=8e3, stop=192e3, step=1, label="Sample rate (Hz)")
     return (
@@ -45,11 +65,11 @@ def _(
 
 
 @app.cell
-def _(angle_of_arrival_ui, mic_distance_ui, np, number_elements_ui):
+def _(get_angle_of_arrival, mic_distance_ui, np, number_elements_ui):
     number_elements = number_elements_ui.value
     index_by_mic = np.linspace(0, number_elements - 1, number_elements)
     mic_distance = mic_distance_ui.value
-    angle_of_arrival = angle_of_arrival_ui.value
+    angle_of_arrival = get_angle_of_arrival()
     speed_of_sound = 343
     delay_by_mic = (index_by_mic * mic_distance * np.sin(np.deg2rad(angle_of_arrival))) / speed_of_sound
     return delay_by_mic, index_by_mic
