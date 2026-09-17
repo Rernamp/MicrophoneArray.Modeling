@@ -27,10 +27,10 @@ def _(np):
 
 
 @app.cell
-def _(duration_s, np, number_samples, sin_frequency, sin_phi0, utils):
+def _(duration_s, np, number_samples, sin_frequency, sin_phi0, validate):
     time_points = np.linspace(0, duration_s, number_samples, endpoint=False)
     y = np.sin(2 * np.pi * time_points * sin_frequency + sin_phi0)
-    utils.validate_vector(y)
+    validate.validate_vector(y)
     return time_points, y
 
 
