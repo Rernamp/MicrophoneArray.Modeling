@@ -100,7 +100,7 @@ def _(np, pd, y_oversampled):
     _states = []
     for i, value in enumerate(y_oversampled):    
         subtracted_value = 1 if _prev_output_value == 1 else -1
-    
+
         delta = y_oversampled[i] - subtracted_value
         _accumulator += delta
         output_pdm[i] = 1 if _accumulator > 0 else 0
@@ -124,7 +124,8 @@ def _(np, pd, y_oversampled):
 def _(alt, mo, state_df):
     chart_pdm = alt.Chart(state_df).mark_bar(color="blue").encode(
         x='iteration',
-        y='output_value'
+        y=alt.Y('output_value', scale=alt.Scale(domain=[-0.1,1.1]))
+    
     ).interactive(bind_y=False)
     mo.ui.altair_chart(chart_pdm)
     return

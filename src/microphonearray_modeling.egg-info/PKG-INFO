@@ -11,6 +11,7 @@ Requires-Dist: marimo>=0.23.15
 Requires-Dist: matplotlib>=3.11.1
 Requires-Dist: numpy>=2.5.1
 Requires-Dist: pandas>=3.0.5
+Requires-Dist: plotly>=7.0.0
 Requires-Dist: pyarrow>=25.0.0
 Requires-Dist: pytest>=9.1.1
 Requires-Dist: pytest-cov>=7.1.0
