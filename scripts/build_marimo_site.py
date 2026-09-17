@@ -129,7 +129,24 @@ def export_notebook(path: Path, local_names: set[str], stdlib_names: set[str], t
         check=True,
         cwd=ROOT,
     )
+    inject_home_link(out_dir, depth=len(Path(slug).parts))
     return slug
+
+
+def inject_home_link(out_dir: Path, depth: int) -> None:
+    index_path = out_dir / "index.html"
+    home_href = "../" * depth or "."
+    link_html = (
+        f'<a href="{home_href}" '
+        'style="position:fixed;top:0.75rem;left:0.75rem;z-index:2147483647;'
+        "font-family:system-ui,sans-serif;font-size:0.85rem;padding:0.35rem 0.7rem;"
+        "background:#fff;color:#333;border:1px solid #ccc;border-radius:0.4rem;"
+        'text-decoration:none;box-shadow:0 1px 3px rgba(0,0,0,0.15);">'
+        "← Home</a>"
+    )
+    html = index_path.read_text(encoding="utf-8")
+    html = html.replace("<body>", f"<body>{link_html}", 1)
+    index_path.write_text(html, encoding="utf-8")
 
 
 def build_index(slugs: list[str]) -> None:
