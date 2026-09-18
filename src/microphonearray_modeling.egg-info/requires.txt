@@ -12,3 +12,4 @@ pytest-cov>=7.1.0
 scipy>=1.18.0
 vegafusion>=2.0.3
 vl-convert-python>=1.9.0.post1
+wigglystuff>=0.5.32

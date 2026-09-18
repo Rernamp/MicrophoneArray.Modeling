@@ -18,3 +18,4 @@ Requires-Dist: pytest-cov>=7.1.0
 Requires-Dist: scipy>=1.18.0
 Requires-Dist: vegafusion>=2.0.3
 Requires-Dist: vl-convert-python>=1.9.0.post1
+Requires-Dist: wigglystuff>=0.5.32
