@@ -1,10 +1,10 @@
 import marimo
 
-__generated_with = "0.23.16"
+__generated_with = "0.24.2"
 app = marimo.App()
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     import numpy as np
     import pandas as pd
@@ -17,39 +17,36 @@ def _():
     return alt, mo, np, pd
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
-    f1 = 12.8
-    f2 = 22.6
+    f = 100
     samples = 1024
-    tstart = 0.0
-    tend = 1.0
-    duration_s = tend - tstart
-    return duration_s, f1, f2, samples, tend, tstart
+    sample_rate = 48000
+    return f, sample_rate, samples
 
 
-@app.cell
-def _(f1, f2, np, samples, tend, tstart):
-    timeList = np.linspace(tstart, tend, samples)
-    waveform = np.sin(2 * np.pi * f1 * timeList) + 1*np.sin(2 * np.pi * f2 * timeList)
+@app.cell(hide_code=True)
+def _(f, np, sample_rate, samples, timeList):
+    indexes = np.linspace(0, samples - 1, samples)
+    waveform = np.sin(2 * np.pi * f * timeList / sample_rate)
     return (waveform,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(duration_s, mo):
-    tDelaySlider = mo.ui.slider(-duration_s, duration_s, 0.0001, value= 1e-4, label="delay")
+    tDelaySlider = mo.ui.slider(-duration_s, duration_s, 0.0001, value= 1e-4, label="delay", include_input=True)
     mo.vstack([tDelaySlider])
     return (tDelaySlider,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(np, tDelaySlider, waveform):
     tDelay = tDelaySlider.value
     fftData = np.fft.fft(waveform)
     return fftData, tDelay
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(fftData, np, samples, tDelay, tend, tstart):
     samplePeriod = (tend - tstart) / (samples)
     tDelayInSamples = tDelay / samplePeriod
@@ -66,7 +63,7 @@ def _(fftData, np, samples, tDelay, tend, tstart):
     return (shiftedWaveform,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(alt, mo, np, pd, shiftedWaveform, tDelay, waveform):
     df = pd.DataFrame({
         'time': np.linspace(0, len(waveform) - 1, len(waveform)),
