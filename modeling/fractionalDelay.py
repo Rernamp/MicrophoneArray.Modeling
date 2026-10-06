@@ -18,6 +18,14 @@ def _():
 
 
 @app.cell(hide_code=True)
+def _():
+    f_sin = 1
+    sample_rate = 100
+    samples_count = 100
+    return f_sin, sample_rate, samples_count
+
+
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     FFT fractional delay described in [cite](https://dsp.stackexchange.com/questions/60476/how-to-do-fft-fractional-time-delay-solved)
@@ -25,41 +33,60 @@ def _(mo):
     return
 
 
-@app.cell
-def _(mo):
-    samples_count_widget = mo.ui.slider(value=10, start=2, stop=100, step=1e-2, label="Samples count", include_input=True)
-    samples_count_widget
-    return (samples_count_widget,)
+@app.cell(hide_code=True)
+def _():
+    oversamples_factor = 100
+    return (oversamples_factor,)
 
 
 @app.cell
-def _(mo, samples_count_widget):
-    samples_count = (int)(samples_count_widget.value)
-    delay_samples_widget = mo.ui.slider(value=0, start=0, stop=samples_count, step=1e-2, label="Delay sample", include_input=True)
+def _(mo, oversamples_factor, samples_count):
+    _step = 1 / oversamples_factor
+    delay_samples_widget = mo.ui.slider(value=0, start=0, stop=samples_count, step=_step, label="Delay sample", include_input=True)
     delay_samples_widget
-    return delay_samples_widget, samples_count
+    return (delay_samples_widget,)
 
 
 @app.cell
-def _(delay_samples_widget, np, samples_count):
-    _rng = np.random.default_rng(1)
-    original_signal = _rng.uniform(0, 1, samples_count)
+def _(delay_samples_widget, f_sin, np, sample_rate, samples_count):
+    indexes = np.linspace(0, samples_count - 1, samples_count)
+    original_signal = np.sin(2 * np.pi * f_sin * indexes / sample_rate)
+
     delay_samples = delay_samples_widget.value
     return delay_samples, original_signal
 
 
 @app.cell
-def _(delay, delay_samples, np, original_signal, samples_count):
-    n = 100
-    resampled_indexes = np.linspace(0, samples_count * n - 1, samples_count * n) / n
+def _():
+    return
 
-    _x_old = np.arange(len(original_signal))
-    _x_new = np.linspace(0, len(original_signal) - 1, (len(original_signal) - 1) * n + 1)
 
-    resampled_delay_samples = int(delay_samples * n)
-    resampled_signal = delay(np.interp(_x_new, _x_old, original_signal), resampled_delay_samples)
-    resampled_delay_samples
-    return resampled_indexes, resampled_signal
+@app.cell
+def _(
+    delay_samples,
+    f_sin,
+    mo,
+    np,
+    oversamples_factor,
+    sample_rate,
+    samples_count,
+):
+    oversampled_indexes = np.linspace(0, samples_count * oversamples_factor - 1, samples_count * oversamples_factor) / oversamples_factor
+
+    oversampled_delay_samples = int(delay_samples * oversamples_factor)
+
+    oversampled_delayed_signal = np.sin(2 * np.pi * f_sin * oversampled_indexes / sample_rate)
+
+    oversampled_delayed_signal = np.roll(oversampled_delayed_signal, oversampled_delay_samples)
+    # oversampled_delayed_signal = delay(oversampled_delayed_signal, oversampled_delay_samples)
+    mo.md(f"delay_samples: {delay_samples} oversampled_delay_samples {oversampled_delay_samples}")
+    return oversampled_delayed_signal, oversampled_indexes
+
+
+@app.cell
+def _(oversampled_delayed_signal, oversamples_factor):
+    decimade_signal = oversampled_delayed_signal[::oversamples_factor]
+    return (decimade_signal,)
 
 
 @app.cell
@@ -71,18 +98,21 @@ def _(delay, delay_samples, np, original_signal, samples_count):
 
 @app.cell
 def _(
+    decimade_signal,
     delayed_signal,
     go,
     index,
     original_signal,
-    resampled_indexes,
-    resampled_signal,
+    oversampled_delayed_signal,
+    oversampled_indexes,
 ):
     fig = go.Figure(
         data=[
             go.Scatter(x=index, y=original_signal, name="original_signal", mode="lines"),
-            go.Scatter(x=index, y=delayed_signal, name="delayed_signal", mode="lines"),        
-            go.Scatter(x=resampled_indexes, y=resampled_signal, name="resampled_signal", mode="lines"),        
+            go.Scatter(x=index, y=delayed_signal, name="delayed_signal", mode="lines"),
+            go.Scatter(x=oversampled_indexes, y=oversampled_delayed_signal, name="oversampled_signal", mode="lines"),
+            go.Scatter(x=index, y=decimade_signal, name="decimade_signal", mode="lines"),
+            go.Scatter(x=index, y=(decimade_signal-delayed_signal), name="delta_", mode="lines"),
         ]
     )
 
