@@ -7,3 +7,4 @@
 /site
 /.marimo_export_tmp
 /modeling/layouts
+/src/widgets/__pycache__
