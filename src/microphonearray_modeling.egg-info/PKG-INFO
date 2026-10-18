@@ -5,6 +5,7 @@ Summary: Add your description here
 Requires-Python: >=3.13
 Description-Content-Type: text/markdown
 Requires-Dist: altair>=6.2.2
+Requires-Dist: comtypes>=1.4.17
 Requires-Dist: ipykernel>=7.3.0
 Requires-Dist: jupyterlab>=4.6.1
 Requires-Dist: marimo>=0.23.15
@@ -13,6 +14,7 @@ Requires-Dist: numpy>=2.5.1
 Requires-Dist: pandas>=3.0.5
 Requires-Dist: plotly>=7.0.0
 Requires-Dist: pyarrow>=25.0.0
+Requires-Dist: pycaw>=20260927
 Requires-Dist: pytest>=9.1.1
 Requires-Dist: pytest-cov>=7.1.0
 Requires-Dist: scipy>=1.18.0
