@@ -30,6 +30,14 @@ Usage:
     --gain-db     Gain applied before quantization. Default 0. Clipped samples are reported.
     --mics        Number of PDM mic channels (ch0..). Default 4; the next channel is the sync counter.
     --no-sync     Don't carry the sync counter over (it is only carried at --rate 48000 anyway).
+    --note, --meta KEY=VALUE, --meta-file FILE.json
+                  User fields added to <MICNODE><USER> (see wav_ixml.py) -- e.g. to fill in what was
+                  forgotten at capture time.
+
+iXML: the source's iXML (RECORDING, USER, NOTE) is carried over, a new FILE_UID is assigned, SPEED and
+TRACK_LIST describe the output, and <MICNODE><CONVERSION> records the source file (name, FILE_UID,
+sha256) and every conversion parameter, gain, per-channel levels and clipping. Needs wav_ixml.py next
+to this script.
 """
 
 import argparse
@@ -38,6 +46,8 @@ import wave
 from pathlib import Path
 
 import numpy as np
+
+import wav_ixml
 
 FS_FRAME = 48000
 BITS_PER_FRAME = 32
@@ -128,6 +138,7 @@ def parse_args():
     p.add_argument("--gain-db", type=float, default=0.0)
     p.add_argument("--mics", type=int, default=4)
     p.add_argument("--no-sync", action="store_true")
+    wav_ixml.add_metadata_args(p)
     return p.parse_args()
 
 
@@ -136,6 +147,7 @@ def main():
     if args.rate <= 0 or FS_CIC % args.rate:
         sys.exit(f"--rate must divide {FS_CIC} (e.g. 16000, 48000, 96000, 192000)")
     decim = FS_CIC // args.rate
+    user = wav_ixml.user_fields(args)
     src = Path(args.wav)
     out_path = Path(args.out) if args.out else src.with_name(src.stem + "_pcm.wav")
 
@@ -149,7 +161,7 @@ def main():
           + (f", FIR {FIR_TAPS} taps /{decim} -> {args.rate} Hz" if h is not None else " (no FIR stage)"))
 
     gain = 10 ** (args.gain_db / 20)
-    channels = []
+    channels, levels = [], []
     for c in range(args.mics):
         x = cic_decimate(data[:, c], luts)
         x -= x.mean()
@@ -157,9 +169,11 @@ def main():
             x = fir_decimate(x, h, decim)
             x -= x.mean()
         x *= gain
-        rms, peak = np.sqrt(np.mean(x ** 2)), np.abs(x).max()
-        print(f"  ch{c}: RMS {20 * np.log10(rms + 1e-20):7.1f} dBFS   peak {20 * np.log10(peak + 1e-20):7.1f} dBFS")
+        rms_db = 20 * np.log10(np.sqrt(np.mean(x ** 2)) + 1e-20)
+        peak_db = 20 * np.log10(np.abs(x).max() + 1e-20)
+        print(f"  ch{c}: RMS {rms_db:7.1f} dBFS   peak {peak_db:7.1f} dBFS")
         channels.append(x)
+        levels.append({"index": c, "rms_dbfs": f"{rms_db:.1f}", "peak_dbfs": f"{peak_db:.1f}"})
 
     full_scale = 2 ** (args.bits - 1) - 1
     dtype = np.int16 if args.bits == 16 else np.int32
@@ -176,8 +190,40 @@ def main():
         w.setsampwidth(args.bits // 8)
         w.setframerate(args.rate)
         w.writeframes(pcm.astype(f"<i{args.bits // 8}").tobytes())
+
+    doc = wav_ixml.parse(wav_ixml.read_ixml(src))
+    source_uid = wav_ixml.renew_uid(doc)
+    wav_ixml.set_note(doc, args.note)
+    wav_ixml.set_format(doc, args.rate, args.bits,
+                        [f"ch{c}" for c in range(args.mics)] + (["sync"] if keep_sync else []))
+    fir = "none" if h is None else {
+        "taps": FIR_TAPS, "decimation": decim, "kaiser_atten_db": FIR_ATTEN_DB,
+        "passband_hz": int(0.4 * args.rate), "stopband_hz": int(0.5 * args.rate),
+        "cic_droop_compensation": True,
+    }
+    wav_ixml.set_section(doc, "MICNODE/CONVERSION", {
+        "tool": wav_ixml.tool_info(__file__),
+        "host": wav_ixml.host_info(),
+        "time": wav_ixml.now(),
+        "source": {"file": src.name, "file_uid": source_uid, "sha256": wav_ixml.file_sha256(src),
+                   "frames": nframes, "channels": nch},
+        "pdm_rate_hz": FS_PDM,
+        "cic": {"order": CIC_N, "decimation": CIC_R, "output_rate_hz": FS_CIC},
+        "fir": fir,
+        "output": {"sample_rate": args.rate, "bits": args.bits, "channels": pcm.shape[1], "frames": len(pcm)},
+        "gain_db": args.gain_db,
+        "full_scale": "all-ones PDM = 0 dBFS",
+        "dc_removed": True,
+        "alignment": f"output sample n centered on PDM bit {FS_PDM // args.rate}*n (first bit of 48 kHz frame n at 48 kHz)",
+        "sync_carried": keep_sync,
+        "clipped_samples": clipped,
+        "channel": levels,
+    })
+    if user:
+        wav_ixml.update_section(doc, "MICNODE/USER", user)
+    wav_ixml.write_ixml(out_path, doc)
     print(f"Wrote {len(pcm)} frames, {pcm.shape[1]} channels "
-          f"({args.mics} mics{' + sync counter' if keep_sync else ''}), {args.bits}-bit @ {args.rate} Hz to {out_path}")
+          f"({args.mics} mics{' + sync counter' if keep_sync else ''}), {args.bits}-bit @ {args.rate} Hz + iXML to {out_path}")
     if clipped:
         print(f"WARNING: {clipped} samples clipped -- lower --gain-db")
 

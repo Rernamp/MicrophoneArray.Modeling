@@ -32,9 +32,16 @@ Usage:
     --verify-pattern  32-bit only: bit-exact check of the firmware's raw-PDM test pattern
                        (rawPdmSendsTestPattern in UsbMicrophone/main.cpp).
     -b/--buffer-ms    Windows only: exclusive-mode engine buffer/period, ms. Default: 20.
+    --note, --meta KEY=VALUE, --meta-file FILE.json
+                      User fields for the WAV's iXML chunk (see wav_ixml.py), e.g.
+                      --meta array.geometry=square --meta array.radius_mm=20 --meta-file mics.json
 
 Besides the sync-counter check, the script reports host-side overruns (WASAPI DATA_DISCONTINUITY
 flag / ALSA "overrun!!!") -- frames lost on the host, not by the device.
+
+The WAV gets an iXML chunk with the capture details (host, device, backend, start time, format, check
+results) and the user fields; print it with `python wav_ixml.py OUT.wav`. Needs wav_ixml.py next to
+this script.
 """
 
 import argparse
@@ -46,6 +53,8 @@ import subprocess
 import sys
 import time
 import wave
+
+import wav_ixml
 
 if sys.platform == "win32":
     import warnings
@@ -199,13 +208,15 @@ def capture_windows(args):
 
     client.Stop()
     kernel32.CloseHandle(event_handle)
-    return b"".join(chunks), nchannels, samplerate, bits, discontinuities
+    device = {"backend": "WASAPI exclusive", "name": target.FriendlyName, "id": target.id,
+              "buffer_ms": f"{buf_frames / samplerate * 1000:.2f}"}
+    return b"".join(chunks), nchannels, samplerate, bits, discontinuities, device
 
 
 # ---------------------------------------------------------------- Linux: ALSA hw: via arecord
 
 def find_alsa_card(name_filter):
-    """-> (card index, card id) of the first /proc/asound/cards entry matching name_filter."""
+    """-> (card index, card id, card name) of the first /proc/asound/cards entry matching name_filter."""
     with open("/proc/asound/cards") as f:
         cards = [m.groups() for m in re.finditer(r"^\s*(\d+)\s+\[(\S+)\s*\]:\s*(.*)$", f.read(), re.M)]
     matches = [c for c in cards if name_filter.lower() in f"{c[1]} {c[2]}".lower()]
@@ -218,7 +229,7 @@ def find_alsa_card(name_filter):
         print(f"Multiple ALSA cards matched {name_filter!r}, using the first:")
         for c in matches:
             print(f"  {c[0]} [{c[1]}] {c[2]}")
-    return int(matches[0][0]), matches[0][1]
+    return int(matches[0][0]), matches[0][1], matches[0][2].strip()
 
 
 def alsa_capture_format(card):
@@ -242,7 +253,7 @@ def alsa_capture_format(card):
 
 
 def capture_linux(args):
-    card, card_id = find_alsa_card(args.name_filter)
+    card, card_id, card_name = find_alsa_card(args.name_filter)
     nchannels, samplerate, bits = alsa_capture_format(card)
     if args.bits:
         bits = args.bits
@@ -266,17 +277,19 @@ def capture_linux(args):
         sys.exit(f"arecord failed (exit code {proc.returncode})")
     # arecord reports xruns as "overrun!!! (at least N ms long)"; the "!!!" survives localization.
     overruns = [line.strip() for line in stderr.splitlines() if "!!!" in line]
-    return proc.stdout, nchannels, samplerate, bits, overruns
+    device = {"backend": "ALSA hw (arecord)", "name": card_name, "id": device}
+    return proc.stdout, nchannels, samplerate, bits, overruns, device
 
 
 # ---------------------------------------------------------------- common analysis
 
 def analyze_counter(pcm, nchan, sync_channel):
+    """-> list of (frame, prev, cur, delta) anomalies, or None if the channel is all-zero."""
     ch = pcm[sync_channel::nchan]
     start = next((i for i, v in enumerate(ch) if v != 0), None)
     if start is None:
         print("Sync channel is all-zero, nothing to analyze.")
-        return
+        return None
     ch = ch[start:]
     print(f"Analyzing {len(ch)} frames of channel {sync_channel} (skipped {start} leading silent frames)")
 
@@ -296,14 +309,16 @@ def analyze_counter(pcm, nchan, sync_channel):
         print(f"  frame {a[0]}: {a[1]:#06x} -> {a[2]:#06x} (delta={a[3]:+d})")
     if not anomalies:
         print("  Clean: counter stepped by exactly +-1 every frame, no gaps/duplicates.")
+    return anomalies
 
 
 def verify_test_pattern(pcm, nchan):
     """Check the raw-PDM test pattern: every frame's ch0..ch3 must be exact functions of ch0 = n,
-    and n must step by exactly 1 per frame. Exercises all 32 bits of every mic slot."""
+    and n must step by exactly 1 per frame. Exercises all 32 bits of every mic slot.
+    -> (frames with corrupted bits, counter discontinuities), or None if not checkable."""
     if nchan < 4:
         print(f"Test pattern needs at least 4 channels, device has {nchan}.")
-        return
+        return None
     nframes = len(pcm) // nchan
     # The stream may start with a few all-zero frames before the device FIFO fills - not part of the pattern.
     start = 0
@@ -328,6 +343,7 @@ def verify_test_pattern(pcm, nchan):
         print(f"  frame {i}: n {a:#010x} -> {b:#010x}")
     if not relation_errors and not step_errors:
         print("  Clean: all 32 bits of every mic slot arrived bit-exact, no gaps.")
+    return len(relation_errors), len(step_errors)
 
 
 def parse_args():
@@ -339,15 +355,18 @@ def parse_args():
     parser.add_argument("--bits", type=int, choices=(16, 32), default=None)
     parser.add_argument("--verify-pattern", action="store_true")
     parser.add_argument("-b", "--buffer-ms", type=float, default=20.0)
+    wav_ixml.add_metadata_args(parser)
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+    user = wav_ixml.user_fields(args)   # validate before spending time on the capture
+    started = wav_ixml.now()
     if sys.platform == "win32":
-        raw, nchannels, samplerate, bits, host_losses = capture_windows(args)
+        raw, nchannels, samplerate, bits, host_losses, device = capture_windows(args)
     elif sys.platform.startswith("linux"):
-        raw, nchannels, samplerate, bits, host_losses = capture_linux(args)
+        raw, nchannels, samplerate, bits, host_losses, device = capture_linux(args)
     else:
         sys.exit(f"Unsupported platform {sys.platform!r} (Windows and Linux only)")
 
@@ -367,17 +386,43 @@ def main():
     else:
         print("Host-side overruns: none")
 
+    pattern = verify_test_pattern(pcm, nchannels) if args.verify_pattern else None
+    sync_channel = nchannels - 1 if args.sync_channel is None else args.sync_channel
+    anomalies = analyze_counter(pcm, nchannels, sync_channel)
+
     if args.out:
         with wave.open(args.out, "wb") as wav:
             wav.setnchannels(nchannels)
             wav.setsampwidth(bits // 8)
             wav.setframerate(samplerate)
             wav.writeframes(pcm.tobytes())
-        print(f"Wrote {total_frames} frames ({nchannels} channels, {bits}-bit PCM) to {args.out}")
 
-    if args.verify_pattern:
-        verify_test_pattern(pcm, nchannels)
-    analyze_counter(pcm, nchannels, nchannels - 1 if args.sync_channel is None else args.sync_channel)
+        recording = {
+            "tool": wav_ixml.tool_info(__file__),
+            "host": wav_ixml.host_info(),
+            "start_time": started,
+            "device": device,
+            "mode": "raw-pdm" if bits == 32 else "pcm",
+            "channels": nchannels,
+            "sample_rate": samplerate,
+            "bits": bits,
+            "frames": total_frames,
+            "duration_s": f"{total_frames / samplerate:.3f}",
+            "sync": {"channel": sync_channel,
+                     "anomalies": "channel all-zero" if anomalies is None else len(anomalies),
+                     "anomaly_frames": " ".join(str(a[0]) for a in (anomalies or [])[:20])},
+            "host_overruns": len(host_losses),
+        }
+        if pattern is not None:
+            recording["test_pattern"] = {"corrupted_frames": pattern[0], "discontinuities": pattern[1]}
+        doc = wav_ixml.new_document(args.note)
+        wav_ixml.set_format(doc, samplerate, bits,
+                            ["sync" if c == sync_channel else f"ch{c}" for c in range(nchannels)])
+        wav_ixml.set_section(doc, "MICNODE/RECORDING", recording)
+        if user:
+            wav_ixml.set_section(doc, "MICNODE/USER", user)
+        wav_ixml.write_ixml(args.out, doc)
+        print(f"Wrote {total_frames} frames ({nchannels} channels, {bits}-bit PCM) + iXML to {args.out}")
 
 
 if __name__ == "__main__":

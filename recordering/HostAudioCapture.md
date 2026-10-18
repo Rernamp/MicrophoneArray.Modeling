@@ -40,6 +40,23 @@ Zero-phase w.r.t. the output grid, so inter-mic delays are kept; at 48 kHz the s
 carried over as ch4, giving the same layout as the PCM firmware. 0 dBFS = all-ones PDM, so a quiet
 room sits around -63 dBFS (~20 LSB RMS in 16-bit) — use `--gain-db` or `--bits 32` for quiet material.
 
+## iXML metadata: `wav_ixml.py`
+
+`record_audio.py` and `pdm_to_pcm.py` write an iXML chunk into every WAV (needs `wav_ixml.py` next to
+them): `<MICNODE><RECORDING>` (host, device, backend, start time, format, sync/overrun results),
+`<MICNODE><CONVERSION>` (source file UID/sha256, filter parameters, gain, levels — the source's
+RECORDING/USER are carried over) and `<MICNODE><USER>` with fields passed from outside:
+
+```bash
+python record_audio.py -d 30 -o doa_090.wav --note "source at 90 deg, 1 m" \
+    --meta-file mics.json --meta array.height_mm=300 --meta source.azimuth_deg=90
+python wav_ixml.py doa_090.wav            # print the chunk
+```
+
+`--meta a.b=value` nests by dots; `--meta-file` takes a nested JSON object where lists become
+repeated elements (e.g. `{"array": {"mic": [{"channel": 0, "x_mm": -14.14, ...}, ...]}}` →
+`<ARRAY><MIC>…</MIC><MIC>…</MIC></ARRAY>`), handy for per-mic positions.
+
 ## Which tool to use
 
 **Use `check_usb_audio_exclusive.py` for anything where sample-accuracy matters** (dropout
