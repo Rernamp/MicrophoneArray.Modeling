@@ -9,7 +9,7 @@ def _():
     import marimo as mo
     import numpy as np
     import plotly.graph_objects as go
-    from widgets.signal_source import generate_signal, signal_source, signal_source_view
+    from rnmp.widgets.signal_source import generate_signal, signal_source, signal_source_view
 
     return generate_signal, go, mo, np, signal_source, signal_source_view
 

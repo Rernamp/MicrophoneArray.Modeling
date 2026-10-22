@@ -10,7 +10,7 @@ def _():
     import altair as alt
     import pandas as pd
     import marimo as mo
-    import utils.validate as validate
+    import rnmp.utils.validate as validate
 
     return alt, mo, np, pd, validate
 

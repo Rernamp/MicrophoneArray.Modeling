@@ -12,7 +12,7 @@ def _():
     import plotly.graph_objects as go
     from scipy.fft import fft, ifft, fftshift
     from scipy import signal
-    from utils.signal import delay, add_noise
+    from rnmp.utils.signal import delay, add_noise
 
     return add_noise, delay, fft, go, ifft, mo, np
 

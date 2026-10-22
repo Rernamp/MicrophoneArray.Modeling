@@ -9,7 +9,7 @@ def _():
     import numpy as np
     import pandas as pd
     import matplotlib.pyplot as plt
-    from utils.validate import validate_vector
+    from rnmp.utils.validate import validate_vector
     import scipy.fft as fft
     import altair as alt
     import marimo as mo

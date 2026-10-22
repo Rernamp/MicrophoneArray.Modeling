@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from utils.validate import validate_vector
+from rnmp.utils.validate import validate_vector
 
 sin_frequency = 440
 sample_rate = 48e3

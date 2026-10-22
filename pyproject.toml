@@ -18,7 +18,9 @@ dependencies = [
     "pycaw>=20260927",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
+    "rnmp[widgets]",
     "scipy>=1.18.0",
+    "soundfile>=0.14.0",
     "vegafusion>=2.0.3",
     "vl-convert-python>=1.9.0.post1",
     "wigglystuff>=0.5.32",
@@ -29,15 +31,8 @@ dev = [
     "ipykernel>=7.3.0",
 ]
 
-[tool.marimo.runtime]
-pythonpath = ["src"]
+[tool.uv]
+package = false
 
-[tool.pytest.ini_options]
-pythonpath = "src"
-
-[build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.uv.sources]
+rnmp = { path = "dependencies/RnmpPy", editable = true }
