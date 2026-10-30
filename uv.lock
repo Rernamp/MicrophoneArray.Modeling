@@ -1333,7 +1333,7 @@ dependencies = [
     { name = "pycaw" },
     { name = "pytest" },
     { name = "pytest-cov" },
-    { name = "rnmp", extra = ["widgets"] },
+    { name = "rnmp", extra = ["video", "widgets"] },
     { name = "scipy" },
     { name = "soundfile" },
     { name = "vegafusion" },
@@ -1361,7 +1361,7 @@ requires-dist = [
     { name = "pycaw", specifier = ">=20260927" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
-    { name = "rnmp", extras = ["widgets"], editable = "dependencies/RnmpPy" },
+    { name = "rnmp", extras = ["widgets", "video"], editable = "dependencies/RnmpPy" },
     { name = "scipy", specifier = ">=1.18.0" },
     { name = "soundfile", specifier = ">=0.14.0" },
     { name = "vegafusion", specifier = ">=2.0.3" },
@@ -2106,17 +2106,23 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+video = [
+    { name = "matplotlib" },
+]
 widgets = [
     { name = "marimo" },
+    { name = "plotly" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "marimo", marker = "extra == 'widgets'", specifier = ">=0.23.15" },
+    { name = "matplotlib", marker = "extra == 'video'", specifier = ">=3.11.1" },
     { name = "numpy", specifier = ">=2.5.1" },
+    { name = "plotly", marker = "extra == 'widgets'", specifier = ">=7.0.0" },
     { name = "scipy", specifier = ">=1.18.0" },
 ]
-provides-extras = ["widgets"]
+provides-extras = ["widgets", "video"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=9.1.1" }]

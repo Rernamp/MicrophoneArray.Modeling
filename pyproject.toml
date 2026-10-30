@@ -18,7 +18,7 @@ dependencies = [
     "pycaw>=20260927",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
-    "rnmp[widgets]",
+    "rnmp[widgets,video]",
     "scipy>=1.18.0",
     "soundfile>=0.14.0",
     "vegafusion>=2.0.3",
